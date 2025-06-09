@@ -3,14 +3,16 @@ package com.example.userservice.controller;
 import com.example.userservice.dto.UserRequestDTO;
 import com.example.userservice.dto.UserResponseDTO;
 import com.example.userservice.service.UserService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.validation.annotation.Validated;
+import jakarta.validation.Valid;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/users")
+@Validated
 public class UserController {
     private final UserService userService;
 
@@ -19,7 +21,7 @@ public class UserController {
     }
 
     @PostMapping("/add")
-    public ResponseEntity<UserResponseDTO> createUser(@RequestBody UserRequestDTO requestDTO) {
+    public ResponseEntity<UserResponseDTO> createUser(@Valid @RequestBody UserRequestDTO requestDTO) {
         UserResponseDTO created = userService.createUser(requestDTO);
         return ResponseEntity
                 .status(201)
@@ -42,7 +44,9 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<UserResponseDTO> updateUser(@PathVariable Long id, @RequestBody UserRequestDTO requestDTO) {
+    public ResponseEntity<UserResponseDTO> updateUser(
+            @PathVariable Long id,
+            @Valid @RequestBody UserRequestDTO requestDTO) {
         return userService.updateUser(id, requestDTO)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity

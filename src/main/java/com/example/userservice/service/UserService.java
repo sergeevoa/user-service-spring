@@ -8,6 +8,7 @@ import com.example.userservice.model.User;
 import com.example.userservice.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -24,6 +25,7 @@ public class UserService {
 
     public UserResponseDTO createUser(UserRequestDTO requestDTO) {
         User user = userMapper.toEntity(requestDTO);
+        user.setCreatedAt(LocalDateTime.now());
         User savedUser = userRepository.save(user);
         return userMapper.toResponseDTO(savedUser);
     }
