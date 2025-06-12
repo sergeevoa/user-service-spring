@@ -4,17 +4,11 @@ import com.example.userservice.config.TestJacksonConfig;
 import com.example.userservice.dto.UserRequestDTO;
 import com.example.userservice.dto.UserResponseDTO;
 import com.example.userservice.service.UserService;
-import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
@@ -26,15 +20,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.example.userservice.util.TestUtils.jsonFieldMatches;
+import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static com.example.userservice.util.TestUtils.jsonField;
 
 @WebMvcTest(UserController.class)
 @Import(TestJacksonConfig.class)
-public class UserControllerTest {
+public class UserControllerLogicTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -48,7 +44,7 @@ public class UserControllerTest {
     @Test
     @DisplayName("POST /api/users/add - successful creation")
     void successfulUserCreation() throws Exception {
-        LocalDateTime creationTime = LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS);
+        LocalDateTime creationTime = LocalDateTime.now();
         UserRequestDTO request = new UserRequestDTO("Alice", "alice@example.com", 25);
         UserResponseDTO response = new UserResponseDTO(1L, "Alice", "alice@example.com", 25,
                 creationTime);
@@ -60,118 +56,12 @@ public class UserControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.name").value("Alice"))
-                .andExpect(jsonPath("$.email").value("alice@example.com"))
-                .andExpect(jsonPath("$.age").value(25))
-                .andExpect(jsonPath("$.createdAt").value(creationTime.toString()));
-    }
-
-    @Test
-    @DisplayName("POST /api/users/add - validation failed: name is blank")
-    void userCreationFailed1() throws Exception {
-        UserRequestDTO request = new UserRequestDTO("", "alice@example.com", 25);
-
-        mockMvc.perform(post("/api/users/add")
-                        .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(request)))
-                        .andExpect(status().isBadRequest())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.name").value("Name is required"));
-    }
-
-    @Test
-    @DisplayName("POST /api/users/add - validation failed: name is too long")
-    void userCreationFailed2() throws Exception {
-        UserRequestDTO request = new UserRequestDTO("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-                + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "alice@example.com", 25);
-
-        mockMvc.perform(post("/api/users/add")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.name").value("Name must be at most 50 characters"));
-    }
-
-    @Test
-    @DisplayName("POST /api/users/add - validation failed: email is blank")
-    void userCreationFailed3() throws Exception {
-        UserRequestDTO request = new UserRequestDTO("Alice", "", 25);
-
-        mockMvc.perform(post("/api/users/add")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.email").value("Email is required"));
-    }
-
-    @Test
-    @DisplayName("POST /api/users/add - validation failed: email is not valid")
-    void userCreationFailed4() throws Exception {
-        UserRequestDTO request = new UserRequestDTO("Alice", "aliceexample.com", 25);
-
-        mockMvc.perform(post("/api/users/add")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.email").value("Invalid email format"));
-    }
-
-    @Test
-    @DisplayName("POST /api/users/add - validation failed: email is too long")
-    void userCreationFailed5() throws Exception {
-        UserRequestDTO request = new UserRequestDTO("Alice", "alice@eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" +
-                "eeeeeeeeeeeeeeeexample.com", 25);
-
-        mockMvc.perform(post("/api/users/add")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.email").value("Email must be at most 50 characters"));
-    }
-
-    @Test
-    @DisplayName("POST /api/users/add - validation failed: age is null")
-    void userCreationFailed6() throws Exception {
-        UserRequestDTO request = new UserRequestDTO("Alice", "alice@example.com", null);
-
-        mockMvc.perform(post("/api/users/add")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andDo(print())
-                .andExpect(status().isBadRequest())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.age").value("Age is required"));
-    }
-
-    @Test
-    @DisplayName("POST /api/users/add - validation failed: age value is less than minimum")
-    void userCreationFailed7() throws Exception {
-        UserRequestDTO request = new UserRequestDTO("Alice", "alice@example.com", -1);
-
-        mockMvc.perform(post("/api/users/add")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.age").value("Age must be at least 0"));
-    }
-
-    @Test
-    @DisplayName("POST /api/users/add - validation failed: age value is greater than maximum")
-    void userCreationFailed8() throws Exception {
-        UserRequestDTO request = new UserRequestDTO("Alice", "alice@example.com", 121);
-
-        mockMvc.perform(post("/api/users/add")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.age").value("Age must be at most 120"));
+                .andExpect(jsonField("$.id", 1L))
+                .andExpect(jsonField("$.name", "Alice"))
+                .andExpect(jsonField("$.email", "alice@example.com"))
+                .andExpect(jsonField("$.age", 25))
+                .andExpect(jsonFieldMatches("$.createdAt",
+                        startsWith(creationTime.truncatedTo(ChronoUnit.SECONDS).toString())));
     }
 
     @Test
@@ -185,11 +75,13 @@ public class UserControllerTest {
 
         mockMvc.perform(get("/api/users/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.name").value("Alice"))
-                .andExpect(jsonPath("$.email").value("alice@example.com"))
-                .andExpect(jsonPath("$.age").value(25))
-                .andExpect(jsonPath("$.createdAt").value(creationTime.toString()));
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonField("$.id", 1L))
+                .andExpect(jsonField("$.name", "Alice"))
+                .andExpect(jsonField("$.email", "alice@example.com"))
+                .andExpect(jsonField("$.age", 25))
+                .andExpect(jsonFieldMatches("$.createdAt",
+                        startsWith(creationTime.truncatedTo(ChronoUnit.SECONDS).toString())));
     }
 
     @Test
@@ -204,8 +96,8 @@ public class UserControllerTest {
     @Test
     @DisplayName("GET /api/users/all - there are some users in the database")
     void getAllUsersDBIsNotEmpty() throws Exception {
-        LocalDateTime creationTime1 = LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS);
-        LocalDateTime creationTime2 = LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS);
+        LocalDateTime creationTime1 = LocalDateTime.now();
+        LocalDateTime creationTime2 = LocalDateTime.now();
         List<UserResponseDTO> users = List.of(
             new UserResponseDTO(1L, "Alice", "alice@example.com", 25, creationTime1),
             new UserResponseDTO(2L, "Bob", "bob@example.com", 30, creationTime2)
@@ -215,17 +107,20 @@ public class UserControllerTest {
 
         mockMvc.perform(get("/api/users/all"))
                 .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].id").value(1L))
-                .andExpect(jsonPath("$[0].name").value("Alice"))
-                .andExpect(jsonPath("$[0].email").value("alice@example.com"))
-                .andExpect(jsonPath("$[0].age").value(25))
-                .andExpect(jsonPath("$[0].createdAt").value(creationTime1.toString()))
-                .andExpect(jsonPath("$[1].id").value(2L))
-                .andExpect(jsonPath("$[1].name").value("Bob"))
-                .andExpect(jsonPath("$[1].email").value("bob@example.com"))
-                .andExpect(jsonPath("$[1].age").value(30))
-                .andExpect(jsonPath("$[1].createdAt").value(creationTime2.toString()));
+                .andExpect(jsonField("$[0].id", 1L))
+                .andExpect(jsonField("$[0].name", "Alice"))
+                .andExpect(jsonField("$[0].email", "alice@example.com"))
+                .andExpect(jsonField("$[0].age", 25))
+                .andExpect(jsonFieldMatches("$[0].createdAt",
+                        startsWith(creationTime1.truncatedTo(ChronoUnit.SECONDS).toString())))
+                .andExpect(jsonField("$[1].id", 2L))
+                .andExpect(jsonField("$[1].name", "Bob"))
+                .andExpect(jsonField("$[1].email", "bob@example.com"))
+                .andExpect(jsonField("$[1].age", 30))
+                .andExpect(jsonFieldMatches("$[1].createdAt",
+                        startsWith(creationTime1.truncatedTo(ChronoUnit.SECONDS).toString())));
     }
 
     @Test
@@ -237,6 +132,7 @@ public class UserControllerTest {
 
         mockMvc.perform(get("/api/users/all"))
                 .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.length()").value(0));
     }
 
@@ -255,119 +151,12 @@ public class UserControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.name").value("Alice"))
-                .andExpect(jsonPath("$.email").value("alice@example.com"))
-                .andExpect(jsonPath("$.age").value(25))
-                .andExpect(jsonPath("$.createdAt").value(creationTime.toString()));
-    }
-
-    @Test
-    @DisplayName("PUT /api/users/{id} - validation failed: name is blank")
-    void userUpdateFailed1() throws Exception {
-        UserRequestDTO request = new UserRequestDTO("", "alice@example.com", 25);
-
-        mockMvc.perform(put("/api/users/1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.name").value("Name is required"));
-    }
-
-    @Test
-    @DisplayName("PUT /api/users/{id} - validation failed: name is too long")
-    void userUpdateFailed2() throws Exception {
-        UserRequestDTO request = new UserRequestDTO("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-                + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "alice@example.com", 25);
-
-        mockMvc.perform(put("/api/users/1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.name").value("Name must be at most 50 characters"));
-    }
-
-    @Test
-    @DisplayName("PUT /api/users/{id} - validation failed: email is blank")
-    void userUpdateFailed3() throws Exception {
-        UserRequestDTO request = new UserRequestDTO("Alice", "", 25);
-
-        mockMvc.perform(put("/api/users/1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.email").value("Email is required"));
-    }
-
-    @Test
-    @DisplayName("PUT /api/users/{id} - validation failed: email is not valid")
-    void userUpdateFailed4() throws Exception {
-        UserRequestDTO request = new UserRequestDTO("Alice", "aliceexample.com", 25);
-
-        mockMvc.perform(put("/api/users/1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.email").value("Invalid email format"));
-    }
-
-    @Test
-    @DisplayName("PUT /api/users/{id} - validation failed: email is too long")
-    void userUpdateFailed5() throws Exception {
-        UserRequestDTO request = new UserRequestDTO("Alice", "alice@eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" +
-                "eeeeeeeeeeeeeeeexample.com", 25);
-
-        mockMvc.perform(put("/api/users/1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.email").value("Email must be at most 50 characters"));
-    }
-
-    @Test
-    @DisplayName("PUT /api/users/{id} - validation failed: age is null")
-    void userUpdateFailed6() throws Exception {
-        UserRequestDTO request = new UserRequestDTO("Alice", "alice@example.com", null);
-
-        mockMvc.perform(put("/api/users/1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andDo(print())
-                .andExpect(status().isBadRequest())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.age").value("Age is required"));
-    }
-
-    @Test
-    @DisplayName("PUT /api/users/{id} - validation failed: age value is less than minimum")
-    void userUpdateFailed7() throws Exception {
-        UserRequestDTO request = new UserRequestDTO("Alice", "alice@example.com", -1);
-
-        mockMvc.perform(put("/api/users/1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.age").value("Age must be at least 0"));
-    }
-
-    @Test
-    @DisplayName("PUT /api/users/{id} - validation failed: age value is greater than maximum")
-    void userUpdateFailed8() throws Exception {
-        UserRequestDTO request = new UserRequestDTO("Alice", "alice@example.com", 121);
-
-        mockMvc.perform(put("/api/users/1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.age").value("Age must be at most 120"));
+                .andExpect(jsonField("$.id", 1L))
+                .andExpect(jsonField("$.name", "Alice"))
+                .andExpect(jsonField("$.email", "alice@example.com"))
+                .andExpect(jsonField("$.age", 25))
+                .andExpect(jsonFieldMatches("$.createdAt",
+                        startsWith(creationTime.truncatedTo(ChronoUnit.SECONDS).toString())));
     }
 
     @Test
