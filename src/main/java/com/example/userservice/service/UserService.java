@@ -1,6 +1,7 @@
 package com.example.userservice.service;
 
 
+import com.example.userservice.dto.UserEvent;
 import com.example.userservice.dto.UserRequestDTO;
 import com.example.userservice.dto.UserResponseDTO;
 import com.example.userservice.mapper.UserMapper;
@@ -17,16 +18,19 @@ import java.util.stream.Collectors;
 public class UserService {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
+    private final KafkaEventProducer kafkaProducer;
 
-    public UserService(UserRepository userRepository, UserMapper userMapper) {
+    public UserService(UserRepository userRepository, UserMapper userMapper, KafkaEventProducer kafkaProducer) {
         this.userRepository = userRepository;
         this.userMapper = userMapper;
+        this.kafkaProducer = kafkaProducer;
     }
 
     public UserResponseDTO createUser(UserRequestDTO requestDTO) {
         User user = userMapper.toEntity(requestDTO);
         user.setCreatedAt(LocalDateTime.now());
         User savedUser = userRepository.save(user);
+        kafkaProducer.sendUserEvent((new UserEvent(user.getEmail(), "CREATED")));
         return userMapper.toResponseDTO(savedUser);
     }
 
@@ -50,8 +54,12 @@ public class UserService {
     }
 
     public boolean deleteUser(Long id) {
-        if(userRepository.existsById(id)) {
+        Optional<User> optionalUser = userRepository.findById(id);
+
+        if (optionalUser.isPresent()) {
+            User user = optionalUser.get();
             userRepository.deleteById(id);
+            kafkaProducer.sendUserEvent((new UserEvent(user.getEmail(), "DELETED")));
             return true;
         }
         return false;

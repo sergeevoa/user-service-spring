@@ -6,9 +6,9 @@ public class UserEvent {
 
     public UserEvent() {}
 
-    public UserEvent(String operation, String email) {
-        this.operation = operation;
+    public UserEvent(String email, String operation) {
         this.email = email;
+        this.operation = operation;
     }
 
     public String getOperation() {
